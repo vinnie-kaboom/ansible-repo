@@ -1,0 +1,12 @@
+---
+- hosts: webservers
+  tasks:
+    - name: Create a test file
+      file:
+        path: /tmp/testfile.txt
+        state: touch
+        mode: '0644'
+    - name: Add content to test file
+      copy:
+        content: "Hello from AnsibleGitOps!"
+        dest: /tmp/testfile.txt
