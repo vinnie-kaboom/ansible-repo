@@ -7,6 +7,7 @@
         state: touch
         mode: '0644'
     - name: Add content to test file
-      copy:
-        content: "Hello from AnsibleGitOps!"
+      copy:[📦 com.jetbrains.GoLand tmp]$ ls
+
+        content: "Hello from AnsibleGitOps...cycle 3"
         dest: /tmp/testfile.txt
