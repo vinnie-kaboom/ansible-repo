@@ -8,5 +8,5 @@
         mode: '0644'
     - name: Add content to test file
       copy:
-        content: "Hello from AnsibleGitOps!"
+        content: "Hello from AnsibleGitOps..."
         dest: /tmp/testfile.txt
