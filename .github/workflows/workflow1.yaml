@@ -32,103 +32,63 @@ jobs:
           fi
           echo "✓ Vault is accessible"
 
-      - name: Check API Status
-        run: |
-          if ! curl -s http://localhost:9090/api/health > /dev/null; then
-            echo "::error::API is not running or not accessible at http://localhost:9090"
-            exit 1
-          fi
-          echo "✓ API is running"
+      - name: Install jq
+        run: sudo dnf install -y jq
 
       - name: Execute Playbook
         run: |
           # First, check if jq is installed
           if ! command -v jq &> /dev/null; then
-            sudo apt-get update && sudo apt-get install -y jq
-          fi
-
-          # Function to check job status
-          check_job_status() {
-            local job_id=$1
-            local status=$(curl -s "http://localhost:9090/api/jobs/$job_id" | jq -r '.status')
-            echo "$status"
-          }
-
-          # Function to format timestamp
-          format_timestamp() {
-            date -d "$1" "+%Y-%m-%d %H:%M:%S"
-          }
-
-          # Execute playbook
-          echo "::group::Executing Playbook"
-          response=$(curl -s -X POST http://localhost:9090/api/playbook/run \
-            -H "Content-Type: application/json" \
-            -d '{
-              "repository_url": "https://github.com/vinnie-kaboom/ansible-repo.git",
-              "playbook_path": "playbooks/site.yml",
-              "inventory": {
-                "webservers": {
-                  "ansible_host": "localhost"
-                }
-              },
-              "environment": {
-                "ANSIBLE_HOST_KEY_CHECKING": "False"
-              }
-            }')
-          
-          if [ $? -ne 0 ]; then
-            echo "::error::Failed to execute playbook"
+            echo "::error::jq is not installed"
             exit 1
           fi
 
-          # Parse and display initial response
-          echo "✓ Playbook execution request sent successfully"
+          # Send the playbook execution request
+          echo "Executing Playbook"
+          response=$(curl -s -X POST http://localhost:9090/api/v1/playbooks/execute \
+            -H "Content-Type: application/json" \
+            -d '{"playbook_path": "playbooks/validate-vault.yml"}')
+
+          # Check if the request was successful
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to send playbook execution request"
+            exit 1
+          fi
+
+          # Display the response
           echo "Response:"
-          echo "$response" | jq '.'
-          
-          # Get the job ID from the response
-          job_id=$(echo "$response" | jq -r '.id')
-          if [ "$job_id" == "null" ] || [ -z "$job_id" ]; then
+          echo "$response"
+
+          # Extract the job ID using jq
+          job_id=$(echo "$response" | jq -r '.job_id')
+          if [ -z "$job_id" ] || [ "$job_id" = "null" ]; then
             echo "::error::Failed to get job ID from response"
             exit 1
           fi
 
-          echo "::endgroup::"
-          echo "::group::Job Status"
-          
-          # Poll for job completion
+          echo "Job ID: $job_id"
+          echo "job_id=$job_id" >> $GITHUB_OUTPUT
+
+      - name: Wait for Job Completion
+        run: |
+          job_id=${{ steps.execute-playbook.outputs.job_id }}
           echo "Waiting for job $job_id to complete..."
-          for ((i=1; i<=$MAX_RETRIES; i++)); do
-            job_status=$(curl -s "http://localhost:9090/api/jobs/$job_id")
-            status=$(echo "$job_status" | jq -r '.status')
+
+          # Wait for the job to complete
+          for i in $(seq 1 $MAX_RETRIES); do
+            status=$(curl -s "http://localhost:9090/api/v1/jobs/$job_id" | jq -r '.status')
             
-            # Format and display current status
-            echo "Attempt $i/$MAX_RETRIES - Status: $status"
-            echo "$job_status" | jq '{
-              id: .id,
-              status: .status,
-              start_time: .start_time,
-              end_time: .end_time,
-              retry_count: .retry_count
-            }'
-            
-            # Check if job is complete
-            if [ "$status" == "completed" ]; then
+            if [ "$status" = "completed" ]; then
               echo "✓ Job completed successfully"
-              echo "$job_status" | jq '.output'
-              echo "::endgroup::"
               exit 0
-            elif [ "$status" == "failed" ]; then
+            elif [ "$status" = "failed" ]; then
               echo "::error::Job failed"
-              echo "$job_status" | jq '.error'
-              echo "::endgroup::"
               exit 1
             fi
             
-            # Wait before next check
+            echo "Job status: $status (attempt $i of $MAX_RETRIES)"
             sleep $RETRY_INTERVAL
           done
-          
-          echo "::error::Job did not complete within the expected time"
-          echo "::endgroup::"
+
+          echo "::error::Job did not complete in time"
           exit 1 
