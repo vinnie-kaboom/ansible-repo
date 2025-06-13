@@ -9,9 +9,9 @@ on:
 
 jobs:
   validate-and-run:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     env:
-      VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+      VAULT_ADDR: http://127.0.0.1:8200
       MAX_RETRIES: 30
       RETRY_INTERVAL: 10
     steps:
