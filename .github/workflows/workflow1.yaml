@@ -34,8 +34,8 @@ jobs:
 
       - name: Check API Status
         run: |
-          if ! curl -s http://localhost:8080/api/health > /dev/null; then
-            echo "::error::API is not running or not accessible at http://localhost:8080"
+          if ! curl -s http://localhost:9090/api/health > /dev/null; then
+            echo "::error::API is not running or not accessible at http://localhost:9090"
             exit 1
           fi
           echo "✓ API is running"
@@ -50,7 +50,7 @@ jobs:
           # Function to check job status
           check_job_status() {
             local job_id=$1
-            local status=$(curl -s "http://localhost:8080/api/jobs/$job_id" | jq -r '.status')
+            local status=$(curl -s "http://localhost:9090/api/jobs/$job_id" | jq -r '.status')
             echo "$status"
           }
 
@@ -61,7 +61,7 @@ jobs:
 
           # Execute playbook
           echo "::group::Executing Playbook"
-          response=$(curl -s -X POST http://localhost:8080/api/playbook/run \
+          response=$(curl -s -X POST http://localhost:9090/api/playbook/run \
             -H "Content-Type: application/json" \
             -d '{
               "repository_url": "https://github.com/vinnie-kaboom/ansible-repo.git",
@@ -99,7 +99,7 @@ jobs:
           # Poll for job completion
           echo "Waiting for job $job_id to complete..."
           for ((i=1; i<=$MAX_RETRIES; i++)); do
-            job_status=$(curl -s "http://localhost:8080/api/jobs/$job_id")
+            job_status=$(curl -s "http://localhost:9090/api/jobs/$job_id")
             status=$(echo "$job_status" | jq -r '.status')
             
             # Format and display current status
