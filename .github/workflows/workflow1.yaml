@@ -32,17 +32,8 @@ jobs:
           fi
           echo "✓ Vault is accessible"
 
-      - name: Install jq
-        run: sudo dnf install -y jq
-
       - name: Execute Playbook
         run: |
-          # First, check if jq is installed
-          if ! command -v jq &> /dev/null; then
-            echo "::error::jq is not installed"
-            exit 1
-          fi
-
           # Send the playbook execution request
           echo "Executing Playbook"
           response=$(curl -s -X POST http://localhost:9090/api/v1/playbooks/execute \
@@ -59,9 +50,9 @@ jobs:
           echo "Response:"
           echo "$response"
 
-          # Extract the job ID using jq
-          job_id=$(echo "$response" | jq -r '.job_id')
-          if [ -z "$job_id" ] || [ "$job_id" = "null" ]; then
+          # Extract the job ID using grep and awk
+          job_id=$(echo "$response" | grep -o '"job_id":"[^"]*"' | awk -F'"' '{print $4}')
+          if [ -z "$job_id" ]; then
             echo "::error::Failed to get job ID from response"
             exit 1
           fi
@@ -76,7 +67,7 @@ jobs:
 
           # Wait for the job to complete
           for i in $(seq 1 $MAX_RETRIES); do
-            status=$(curl -s "http://localhost:9090/api/v1/jobs/$job_id" | jq -r '.status')
+            status=$(curl -s "http://localhost:9090/api/v1/jobs/$job_id" | grep -o '"status":"[^"]*"' | awk -F'"' '{print $4}')
             
             if [ "$status" = "completed" ]; then
               echo "✓ Job completed successfully"
