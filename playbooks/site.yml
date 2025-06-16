@@ -1,5 +1,5 @@
 ---
-- hosts: localhost
+- hosts: webservers
   tasks:
     - name: Create a test file
       file:
@@ -10,3 +10,4 @@
       copy:
         content: "Hello from AnsibleGitOps...cycle 3"
         dest: /tmp/testfile.txt
+        
