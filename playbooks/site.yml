@@ -10,7 +10,7 @@
         update_cache: yes
       when: ansible_os_family == "RedHat"
 
-    - name: Install nginxt
+    - name: Install nginx
       package:
         name: nginx
         state: present
