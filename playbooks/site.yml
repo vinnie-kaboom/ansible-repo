@@ -1,13 +1,88 @@
 ---
-- hosts: webservers
+- name: Install and configure nginx
+  hosts: webservers
+  become: yes
+  gather_facts: yes
+  
   tasks:
-    - name: Create a test file
+    - name: Update package cache
+      package:
+        update_cache: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Install nginxt
+      package:
+        name: nginx
+        state: present
+      register: nginx_install
+
+    - name: Start and enable nginx service
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+      register: nginx_service
+
+    - name: Create nginx configuration directory
       file:
-        path: /tmp/testfile.txt
-        state: touch
+        path: /etc/nginx/conf.d
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Create custom nginx configuration
+      template:
+        src: nginx.conf.j2
+        dest: /etc/nginx/conf.d/custom.conf
         mode: '0644'
-    - name: Add content to test file
+        owner: root
+        group: root
+        backup: yes
+      notify: reload nginx
+
+    - name: Create web root directory
+      file:
+        path: /var/www/html
+        state: directory
+        mode: '0755'
+        owner: nginx
+        group: nginx
+
+    - name: Create index.html
       copy:
-        content: "Hello from AnsibleGitOps...cycle 3"
-        dest: /tmp/testfile.txt
-        
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Welcome to nginx!</title>
+              <style>
+                  body { font-family: Arial, sans-serif; margin: 40px; }
+                  .container { max-width: 800px; margin: 0 auto; }
+                  .header { background: #f0f0f0; padding: 20px; border-radius: 5px; }
+                  .content { margin-top: 20px; }
+              </style>
+          </head>
+        dest: /var/www/html/index.html
+        mode: '0644'
+        owner: nginx
+        group: nginx
+      notify: reload nginx
+
+    - name: Configure firewall for nginx
+      firewalld:
+        service: http
+        permanent: yes
+        state: enabled
+        immediate: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Display nginx status
+      debug:
+        msg: "Nginx installation completed successfully"
+
+  handlers:
+    - name: reload nginx
+      service:
+        name: nginx
+        state: reloaded 
