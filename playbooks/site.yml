@@ -1,7 +1,7 @@
 ---
 - hosts: webservers
   tasks:
-    - name: Create a test file v1
+    - name: Create a test file
       file:
         path: /tmp/testfile.txt
         state: touch
